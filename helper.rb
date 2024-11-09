@@ -18,9 +18,9 @@ def system_gems(*gems)
 end
 
 def with_built_bundler(version = nil, &block)
-      require_relative "builders"
+  require_relative "builders"
 
-      Builders::BundlerBuilder.new(self, "bundler", version)._build(&block)
+  Builders::BundlerBuilder.new(self, "bundler", version)._build(&block)
 end
 
 def install_gem(path, install_dir, default = false)
