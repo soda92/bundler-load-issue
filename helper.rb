@@ -1,3 +1,7 @@
+require_relative "gem_path"
+require_relative "command_execution"
+
+
 def system_gems(*gems)
   gems = gems.flatten
   options = gems.last.is_a?(Hash) ? gems.pop : {}
@@ -50,6 +54,56 @@ end
 
 def opt_add(option, options)
   [option.strip, options].compact.reject(&:empty?).join(" ")
+end
+
+def sys_exec(cmd, options = {}, &block)
+  env = options[:env] || {}
+  env["RUBYOPT"] = opt_add(opt_add("-r#{spec_dir}/support/switch_rubygems.rb", env["RUBYOPT"]), ENV["RUBYOPT"])
+  options[:env] = env
+  options[:dir] ||= bundled_app
+
+  sh(cmd, options, &block)
+end
+
+def sh(cmd, options = {})
+  dir = options[:dir]
+  env = options[:env] || {}
+
+  command_execution = CommandExecution.new(cmd.to_s, working_directory: dir, timeout: options[:timeout] || 60)
+
+  require "open3"
+  require "shellwords"
+  Open3.popen3(env, *cmd.shellsplit, chdir: dir) do |stdin, stdout, stderr, wait_thr|
+    yield stdin, stdout, wait_thr if block_given?
+    stdin.close
+
+    stdout_handler = ->(data) { command_execution.original_stdout << data }
+    stderr_handler = ->(data) { command_execution.original_stderr << data }
+
+    stdout_thread = read_stream(stdout, stdout_handler, timeout: command_execution.timeout)
+    stderr_thread = read_stream(stderr, stderr_handler, timeout: command_execution.timeout)
+
+    stdout_thread.join
+    stderr_thread.join
+
+    status = wait_thr.value
+    command_execution.exitstatus = if status.exited?
+                                     status.exitstatus
+                                   elsif status.signaled?
+                                     exit_status_for_signal(status.termsig)
+                                   end
+  rescue TimeoutExceeded
+    command_execution.failure_reason = :timeout
+    command_execution.exitstatus = exit_status_for_signal(Signal.list["INT"])
+  end
+
+  unless options[:raise_on_error] == false || command_execution.success?
+    command_execution.raise_error!
+  end
+
+  command_executions << command_execution
+
+  command_execution.stdout
 end
 
 

@@ -1,3 +1,5 @@
+require_relative "builder"
+
 def build_gem(name, *args, &blk)
   build_with(GemBuilder, name, args, &blk)
 end
@@ -21,4 +23,9 @@ def build_with(builder, name, args, &blk)
   spec
 end
 
+
+build_gem "myrack", %w[0.9.1 1.0.0] do |s|
+  s.executables = "myrackup"
+  s.post_install_message = "Myrack's post install message"
+end
 

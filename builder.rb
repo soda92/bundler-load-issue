@@ -24,13 +24,17 @@ class LibBuilder
     @files[file] = source
   end
 
+  def constantize(name)
+      name.delete("-").upcase
+    end
+
   def executables=(val)
     @spec.executables = Array(val)
     @spec.executables.each do |file|
       executable = "#{@spec.bindir}/#{file}"
       shebang = "#!/usr/bin/env ruby\n"
       @spec.files << executable
-      write executable, "#{shebang}require_relative '../lib/#{@name}' ; puts #{Builders.constantize(@name)}"
+      write executable, "#{shebang}require_relative '../lib/#{@name}' ; puts #{constantize(@name)}"
     end
   end
 
